@@ -30,7 +30,6 @@ typedef struct Celula{
 	char garbage; //reservado para uso futuro
 	struct Celula* dir;
 	struct Celula* esq;
-	struct Celula* proximo;
 }Celula;
 
 Celula* stack[P];
@@ -79,29 +78,25 @@ void tipoReducao(int tipo);
 Celula* eval(Celula *grafo);
 
 int main() {
-	alocaFreeList();
-	double clk_ps = (double)  CLOCKS_PER_SEC;
-	clock_t toc = clock();
+    double clk_ps = (double)  CLOCKS_PER_SEC;
+    clock_t toc = clock();
+ 	alocaFreeList();
 	raiz = geraGrafo(entrada);
-	pos_ordem(raiz);
-	printf("\n");
 	clock_t tic = clock();
-	printf("\n");
 	printf("Tempo Criacao do grafo = %lf\n", (double)((tic - toc)/clk_ps));
 	toc = clock();
 	double a = (double) toc;
 	busca(raiz);
 	int i = 0;
 	do {
-		pos_ordem(raiz);
-		printf("\n");
 		tipoReducao(stack[top]->type);
 		busca(stack[top]->esq);
 		i++;
-	}while(raiz->type == 0xA);
+	}while(raiz->type == -50);
 	tic = clock();
 	double b = (double) tic;
-	printf("resposta - %c\n", decodificar(raiz->type));
+	printf("resposta - ");
+    em_ordem(raiz);
 	printf("\n");
 	printf("Tempo Reducao grafo = %lf\n", (double)((b - a)/clk_ps));
 	printf("\nNumero de iteracoes = %d\n",i);
@@ -111,14 +106,17 @@ int main() {
 
 Celula* eval(Celula *grafo) {
 	int newTop = top;
+	Celula* x = NULL;
+	push(x);
 	Celula* antRaiz = raiz;
 	raiz = grafo;
 	busca(grafo);
 	do {
 		tipoReducao(stack[top]->type);
 		busca(stack[top]->esq);
-	}while(raiz->type == 0xA);
+	}while(raiz->type == -50);
 	top = newTop;
+	grafo = raiz;
 	raiz = antRaiz;
 	return grafo;
 }
@@ -126,62 +124,128 @@ Celula* eval(Celula *grafo) {
 void tipoReducao(int tipo) {
 
 	switch(tipo) {
-		case 0xB:
+		case -49:
 			reduzK();
 			break;
-		case 0xC:
+		case -48:
 			reduzS();
 			break;
-		case 0xD:
+		case -47:
 			reduzI();
 			break;
-		case 0xE:
+		case -46:
 			reduzB();
 			break;
-		case 0xF:
+		case -45:
 			reduzC();
 			break;
-		case 0x10:
+		case -44:
 			reduzD();
 			break;
-		case 0x11:
+		case -43:
 			reduzE();
 			break;
-		case 0x12:
+		case -42:
 			reduzF();
 			break;
-		case 0x13:
+		case -41:
 			reduzY();
 			break;
-		case 0x14:
+		case -40:
 			reduzAdicao();
 			break;
-		case 0x15:
+		case -39:
 			reduzSubtracao();
 			break;
-		case 0x16:
+		case -38:
 			reduzMultiplicacao();
 			break;
-		case 0x17:
+		case -37:
 			reduzDivisao();
 			break;
-		case 0x18:
+		case -36:
 			reduzTrue();
 			break;
-		case 0x19: //Wrong
+		case -35:
 			reduzFalse();
 			break;
-		case 0x1A:
+		case -34:
 			reduzMaiorQue();
 			break;
-		case 0x1B:
+		case -33:
 			reduzMenorQue();
 			break;
-		case 0x1C://Igualdade
+		case -32://Igualdade
 			reduzIgual();
 			break;
 	}
 
+}
+
+int charToInt(char value){
+    int res = -1;
+    switch(value){
+        case'0':
+            res = 0;
+            break;
+        case'1':
+            res = 1;
+            break;
+        case'2':
+            res = 2;
+            break;
+        case'3':
+            res = 3;
+            break;
+        case'4':
+            res = 4;
+            break;
+        case'5':
+            res = 5;
+            break;
+        case'6':
+            res = 6;
+            break;
+        case'7':
+            res = 7;
+            break;
+        case'8':
+            res = 8;
+            break;
+        case'9':
+            res = 9;
+            break;
+    }
+    return res;
+}
+
+
+Celula* adiciona_numero(char *entrada, int *contador_digito){
+    int mult = 1;
+    int cont = *contador_digito;
+    if(*entrada == '-'){
+        mult = -1;
+        entrada++;
+        cont++;
+    }
+
+    int numero_atual = cria_valor_digito(entrada++);
+    int val = cria_valor_digito(entrada);
+    while(val >= 0){
+        numero_atual = numero_atual * 10;
+        int aux      = cria_valor_digito(entrada++);
+        numero_atual = numero_atual + aux;
+        cont++;
+        val = cria_valor_digito(entrada);
+    }
+
+    //pega espaco da freelist
+    Celula *cel = aloca_espaco();
+    cel->tipo = numero_atual * mult;
+    cel->fesq = NULL;
+    cel->fdir = NULL;
+    *contador_digito = cont;
+    return cel;
 }
 
 
@@ -203,33 +267,26 @@ void alocaFreeList() {
 	for(i = 1; i < HEAP; i++) {
 		pt->type = 0x0;
 		pt->esq = NULL;
-		pt->dir = NULL;
-		pt->proximo = mem + i;
-		pt = pt->proximo;
+		pt->dir = mem + i;
+		pt = pt->dir;
 	}
 }
 
 Celula* alocaMemoria() {
-	Celula* alocada = NULL;
-	if(freelist->proximo == mem + HEAP) {
-		printf("!!!!!!!!!!!sem memoria!!!!!!!!!!!!");
-		exit(0);
-	}
-	if(freelist->type != 0x0) {
-		freelist = freelist->proximo;
-		alocada = freelist;
-	}
+	Celula* alocada = freelist;
+	if(freelist != NULL)
+	    freelist = freelist->dir;
 	else {
-		alocada = freelist;
-		freelist = freelist->proximo;
-	}
+        printf("!!!!!!!!!!!sem memoria!!!!!!!!!!!!");
+        exit(0);
+    }
 
 	return alocada;
 }
 
 Celula* aplicacao() {
 	Celula* a = alocaMemoria();
-	a->type = 0xA;
+	a->type = -50;
 	a->dir = NULL;
 	a->esq = NULL;
 
@@ -239,12 +296,17 @@ Celula* aplicacao() {
 
 Celula* combinador(char s) {
 	Celula* a = alocaMemoria();
-	a->type = codificar(s);
+	int value = codificar(s);
+	if(value != -1)
+		a->type = value;
+	else
+		a->type = ((int) s) - 48;
 	a->dir = NULL;
 	a->esq = NULL;
 
 	return a;
 }
+
 
 Celula* combinador_valor(int d) {
 	Celula* a = alocaMemoria();
@@ -290,7 +352,7 @@ Celula* geraGrafo(char* string) {
 		else {
 			if(subgrafo != NULL) {
 				Celula* aux = NULL;
-				if(subgrafo->type == 0xA) {
+				if(subgrafo-> type == 0xA) {
 					if(subgrafo->dir != NULL) {
 						aux = aplicacao();
 						aux->esq = subgrafo;
@@ -328,18 +390,18 @@ void pos_ordem(Celula* grafo) {
 
 void em_ordem(Celula* grafo) {
 	if(grafo->esq != NULL)
-		pos_ordem(grafo->esq);
+		em_ordem(grafo->esq);
 	printf("%c", decodificar(grafo->type));
 	if(grafo->dir != NULL)
-		pos_ordem(grafo->dir);
+		em_ordem(grafo->dir);
 }
 
 void pre_ordem(Celula* grafo) {
 	printf("%c", decodificar(grafo->type));
 	if(grafo->esq != NULL)
-		pos_ordem(grafo->esq);
+		pre_ordem(grafo->esq);
 	if(grafo->dir != NULL)
-		pos_ordem(grafo->dir);
+		pre_ordem(grafo->dir);
 }
 
 
@@ -356,6 +418,7 @@ void push(Celula* c) {
 
 
 void pop() {
+    stack[top] = NULL;
 	top--;
 }
 
@@ -378,69 +441,63 @@ void busca(Celula* grafo) {
 }
 
 int codificar(char comb) {
-	int res;
+	int res = -1;
 	switch(comb) {
 		case 'K':
-			res = 0xB;
+			res = -49;
 			break;
 		case 'S':
-			res = 0xC;
+			res = -48;
 			break;
 		case 'I':
-			res = 0xD;
+			res = -47;
 			break;
 		case 'B':
-			res = 0xE;
+			res = -46;
 			break;
 		case 'C':
-			res = 0xF;
+			res = -45;
 			break;
 		case 'D':
-			res = 0x10;
+			res = -44;
 			break;
 		case 'E':
-			res = 0x11;
+			res = -43;
 			break;
 		case 'F':
-			res = 0x12;
+			res = -42;
 			break;
 		case 'Y':
-			res = 0x13;
+			res = -41;
 			break;
 		//Operadores aritmeticos
 		case '+':
-			res = 0x14;
+			res = -40;
 			break;
 		case '-':
-			res = 0x15;
+			res = -39;
 			break;
 		case '*':
-			res = 0x16;
+			res = -38;
 			break;
 		case '/':
-			res = 0x17;
+			res = -37;
 			break;
 		// Combinadores lógicos
 		case 'T'://TRUE
-			res = 0x18;
+			res = -36;
 			break;
 		case 'W'://WRONG
-			res = 0x19;
+			res = -35;
 			break;
 		case '>':
-			res = 0x1A;
+			res = -34;
 			break;
 		case '<':
-			res = 0x1B;
+			res = -33;
 			break;
 		case '='://Igualdade
-			res = 0x1C;
-			break;
-		case '&'://And logico
-			res = 0x1D;
-			break;
-		case '|'://Or logico
-			res = 0x1E;
+			res = -32;
 			break;
 		case 'X':
 			res = X;
@@ -450,73 +507,75 @@ int codificar(char comb) {
 }
 
 char decodificar(int comb) {
-	char res = 'X';
+	char res;
 	switch(comb) {
-		case 0xA:
+		case -50:
 			res = '@';
 			break;
-		case 0xB:
+		case -49:
 			res = 'K';
 			break;
-		case 0xC:
+		case -48:
 			res = 'S';
 			break;
-		case 0xD:
+		case -47:
 			res = 'I';
 			break;
-		case 0xE:
+		case -46:
 			res = 'B';
 			break;
-		case 0xF:
+		case -45:
 			res = 'C';
 			break;
-		case 0x10:
+		case -44:
 			res = 'D';
 			break;
-		case 0x11:
+		case -43:
 			res = 'E';
 			break;
-		case 0x12:
+		case -42:
 			res = 'F';
 			break;
-		case 0x13:
+		case -41:
 			res = 'Y';
 			break;
 		//Operadores aritmeticos
-		case 0x14:
+	    case -40:
 			res = '+';
 			break;
-		case 0x15:
+		case -39:
 			res = '-';
 			break;
-		case 0x16:
+		case -38:
 			res = '*';
 			break;
-		case 0x17:
+		case -37:
 			res = '/';
 			break;
 		// Combinadores lógicos
-		case 0x18: //TRUE
+		case -36: //TRUE
 			res = 'T';
 			break;
-		case 0x19: //WRONG
+		case -35: //WRONG
 			res = 'W';
 			break;
-		case 0x1A:
+		case -34:
 			res = '>';
 			break;
-		case 0x1B:
+		case -33:
 			res = '<';
 			break;
-		case 0x1C://Igualdade
+		case -32://Igualdade
 			res = '=';
 			break;
-		case 0x1D://And logico
+		case -31://And logico
 			res = '&';
 			break;
-		case 0x1E://Or logico
+		case -30://Or logico
 			res = '|';
 			break;
+	    default:
+	        printf("%d", comb);
 	}
 	return res;
 }
@@ -770,7 +829,7 @@ void aux_comparacao(int type) {
 	pop();
 	Celula* b = eval(stack[top]->dir);
 	pop();
-	Celula* pai = stack[top]->dir;
+	Celula* pai = stack[top];
 
 	Celula* res;
 	switch(type) {
